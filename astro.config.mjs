@@ -12,6 +12,7 @@ export default defineConfig({
     defaultStrategy: 'hover',
   },
   build: {
+    concurrency: 10,
     // Incrusta el CSS en el HTML en lugar de enlazarlo. El <link> obligaba a un
     // round-trip extra en serie (el navegador no descubre la hoja hasta que
     // parsea el head) que bloqueaba el primer pintado. Con el CSS dentro del
