@@ -114,7 +114,7 @@ function Counter() {
 
 Recomendamos revisar las siguientes secciones:
 
-- [¿Cuáles son las reglas de los hooks en React?](#cuáles-son-las-reglas-de-los-hooks-en-react)
+- [¿Cuáles son las reglas de los hooks en React?](#cuales-son-las-reglas-de-los-hooks-en-react)
 
 
 ##### Pon a prueba

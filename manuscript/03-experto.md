@@ -1333,6 +1333,208 @@ Facebook lo creó para gestionar UIs complejas. **Redux** y otras librerías de 
 
 ---
 
+## ¿Cómo se puede renderizar un Context desde un Server Component?
+
+Los Server Components **no pueden crear** un Context (`createContext` es de cliente), pero desde React 19.3 **sí pueden renderizarlo** si lo importan de un módulo `'use client'`.
+
+Antes hacía falta un Provider envoltorio que solo reenviaba la prop:
+
+```javascript
+// user-context.js
+'use client'
+import { createContext } from 'react'
+
+export const UserContext = createContext(null)
+
+export function UserProvider({ currentUser, children }) {
+  return <UserContext value={currentUser}>{children}</UserContext>
+}
+```
+
+```javascript
+// layout.server.js
+import { UserProvider } from './user-context'
+
+export async function Layout({ children }) {
+  const currentUser = await getCurrentUser()
+  return <UserProvider currentUser={currentUser}>{children}</UserProvider>
+}
+```
+
+Ahora el Server Component importa el Context y lo usa directo:
+
+```javascript
+// user-context.js
+'use client'
+import { createContext } from 'react'
+
+export const UserContext = createContext(null)
+```
+
+```javascript
+// layout.server.js
+import { UserContext } from './user-context'
+
+export async function Layout({ children }) {
+  const currentUser = await getCurrentUser()
+
+  return <UserContext value={currentUser}>{children}</UserContext>
+}
+```
+
+Es especialmente útil cuando el Context solo existe para **pasar datos del servidor al árbol de cliente**. La creación sigue siendo del lado cliente; el servidor solo lo *renderiza* con un `value`.
+
+
+##### Pon a prueba
+
+*Responde sin mirar el solucionario del final del capítulo. Marca una sola opción.*
+
+**1.** ¿Puede un Server Component crear un Context con createContext?
+
+- **a)** Solo si usa useState en el servidor.
+- **b)** Sí, y es la forma recomendada de compartir estado entre peticiones.
+- **c)** Sí, si el Context no tiene value.
+- **d)** No: createContext es de cliente. El servidor solo puede renderizar un Context importado de un módulo 'use client'.
+
+**2.** ¿Qué cambió en React 19.3 respecto a renderizar Context desde el servidor?
+
+- **a)** El servidor puede llamar a useContext.
+- **b)** Hay que usar siempre Redux en el servidor.
+- **c)** Ya no hace falta un Provider envoltorio: puedes renderizar <UserContext value={...}> directo.
+- **d)** Context se ha eliminado en favor de props.
+
+**3.** ¿De dónde debe importar el Server Component el Context?
+
+- **a)** No se importa: se crea inline en el Server Component.
+- **b)** De un módulo marcado con 'use client' que exporta el Context.
+- **c)** De window.React.
+- **d)** De react-dom/server.
+
+**4.** ¿Para qué es especialmente útil este patrón?
+
+- **a)** Mutar el Context desde varios Server Components a la vez.
+- **b)** Crear animaciones ViewTransition.
+- **c)** Pasar datos del servidor al árbol de cliente sin un Provider que solo reenvía props.
+- **d)** Sustituir a las Server Actions.
+
+---
+
+## ¿Qué son Trusted Types y cómo los soporta React 19.3?
+
+[Trusted Types](https://developer.mozilla.org/en-US/docs/Web/API/Trusted_Types_API) es una API del navegador para reducir XSS basado en DOM. Si la página envía `Content-Security-Policy: require-trusted-types-for 'script'`, el navegador exige que valores peligrosos (`innerHTML`, scripts, URLs de script) sean objetos tipados (`TrustedHTML`, `TrustedScript`, `TrustedScriptURL`) creados por **tus políticas de sanitización**, no strings crudos.
+
+Antes, React convertía siempre el valor a string (`'' + value`) antes de pasarlo al DOM. Eso **rompía** los objetos Trusted Types: el navegador recibía un string y lo rechazaba.
+
+En React 19.3 esos valores **se pasan sin coercionar**. El navegador puede validarlos y tus políticas funcionan como toca.
+
+En la práctica: si sanitizas HTML con una política Trusted Types y lo inyectas (por ejemplo con `dangerouslySetInnerHTML`), React ya no te lo convierte en string a espaldas. Sigue siendo tu responsabilidad sanitizar; React solo deja de destruir el tipo.
+
+
+##### Pon a prueba
+
+*Responde sin mirar el solucionario del final del capítulo. Marca una sola opción.*
+
+**1.** ¿Qué problema de seguridad atacan Trusted Types?
+
+- **a)** El mismatch de hidratación.
+- **b)** Clickjacking en iframes.
+- **c)** XSS basado en DOM: exigen objetos tipados en sinks como innerHTML.
+- **d)** Fugas de memoria por closures.
+
+**2.** ¿Qué hacía React antes con un TrustedHTML y por qué fallaba?
+
+- **a)** Lo coercía a string ('' + value) y el navegador rechazaba el string crudo.
+- **b)** Lo guardaba en Context.
+- **c)** Lo ignoraba y no pintaba nada.
+- **d)** Lo sanitizaba dos veces y lo vaciaba.
+
+**3.** ¿Qué cambia en React 19.3?
+
+- **a)** Solo funciona en Internet Explorer.
+- **b)** Pasa los objetos Trusted Types al DOM sin coercionarlos a string.
+- **c)** React sanitiza todo el HTML por ti.
+- **d)** Se elimina dangerouslySetInnerHTML.
+
+**4.** Con Trusted Types, ¿quién sigue siendo responsable de sanitizar?
+
+- **a)** useEffect.
+- **b)** React, de forma automática en cada render.
+- **c)** Tú, con tus políticas. React solo deja de destruir el tipo.
+- **d)** El bundler, al minificar.
+
+---
+
+## ¿Qué cambia en las Transitions independientes de React 19.3?
+
+Antes, React **entrelazaba** todas las Transitions en un único render. Si una Transition era lenta (filtrar una lista enorme, revelar un `Suspense` pesado), **retenía** a las demás aunque no tuvieran nada que ver.
+
+Desde React 19.3 cada Transition se renderiza **por su cuenta**. Una Transition lenta ya no bloquea a otra urgente-pero-no-tanto que el usuario acaba de disparar.
+
+```javascript
+function Dashboard() {
+  const [query, setQuery] = useState('')
+  const [tab, setTab] = useState('home')
+  const [isPending, startTransition] = useTransition()
+
+  const onSearch = value => {
+    startTransition(() => setQuery(value))
+  }
+
+  const onTab = next => {
+    startTransition(() => setTab(next))
+  }
+
+  return (
+    <>
+      <input onChange={e => onSearch(e.target.value)} />
+      <nav>
+        <button onClick={() => onTab('home')}>Inicio</button>
+        <button onClick={() => onTab('stats')}>Stats</button>
+      </nav>
+      {isPending && <p>Actualizando…</p>}
+      <Results query={query} tab={tab} />
+    </>
+  )
+}
+```
+
+Cambiar de pestaña no tiene que esperar a que termine el filtrado anterior. El modelo mental no cambia (`startTransition` sigue marcando trabajo no urgente), pero la **planificación** deja de meter todas las Transitions en el mismo saco.
+
+
+##### Pon a prueba
+
+*Responde sin mirar el solucionario del final del capítulo. Marca una sola opción.*
+
+**1.** ¿Cómo se planificaban las Transitions antes de React 19.3?
+
+- **a)** Se ejecutaban en el servidor.
+- **b)** Se entrelazaban en un único render: una Transition lenta retenía a las demás.
+- **c)** Siempre eran síncronas con flushSync.
+- **d)** Solo había una Transition por aplicación.
+
+**2.** ¿Qué cambia en React 19.3?
+
+- **a)** Hay que marcar a mano la prioridad con un número.
+- **b)** Todas las actualizaciones pasan a ser urgentes.
+- **c)** Cada Transition se renderiza por su cuenta y una lenta ya no bloquea a otra.
+- **d)** useTransition ahora es síncrono.
+
+**3.** ¿Cambia el modelo mental de startTransition?
+
+- **a)** No: sigue marcando trabajo no urgente. Cambia la planificación, no la API.
+- **b)** Sí: solo se puede tener una Transition activa.
+- **c)** Sí: ya no existe isPending.
+- **d)** Sí: hay que pasar un id único a cada Transition.
+
+**4.** En la práctica, ¿qué ejemplo ilustra la mejora?
+
+- **a)** Los Server Components ya no necesitan await.
+- **b)** useState deja de ser asíncrono.
+- **c)** Las listas ya no necesitan key.
+- **d)** Cambiar de pestaña no tiene que esperar a que termine un filtrado lento anterior.
+
+---
+
 
 {pagebreak}
 
@@ -1494,3 +1696,24 @@ Facebook lo creó para gestionar UIs complejas. **Redux** y otras librerías de 
 1. **b)** Un patron de arquitectura de aplicaciones basado en flujo unidireccional de datos.
 2. **c)** En una sola direccion: de las vistas a los stores.
 3. **b)** Redux
+
+### ¿Cómo se puede renderizar un Context desde un Server Component?
+
+1. **d)** No: createContext es de cliente. El servidor solo puede renderizar un Context importado de un módulo 'use client'.
+2. **c)** Ya no hace falta un Provider envoltorio: puedes renderizar <UserContext value={...}> directo.
+3. **b)** De un módulo marcado con 'use client' que exporta el Context.
+4. **c)** Pasar datos del servidor al árbol de cliente sin un Provider que solo reenvía props.
+
+### ¿Qué son Trusted Types y cómo los soporta React 19.3?
+
+1. **c)** XSS basado en DOM: exigen objetos tipados en sinks como innerHTML.
+2. **a)** Lo coercía a string ('' + value) y el navegador rechazaba el string crudo.
+3. **b)** Pasa los objetos Trusted Types al DOM sin coercionarlos a string.
+4. **c)** Tú, con tus políticas. React solo deja de destruir el tipo.
+
+### ¿Qué cambia en las Transitions independientes de React 19.3?
+
+1. **b)** Se entrelazaban en un único render: una Transition lenta retenía a las demás.
+2. **c)** Cada Transition se renderiza por su cuenta y una lenta ya no bloquea a otra.
+3. **a)** No: sigue marcando trabajo no urgente. Cambia la planificación, no la API.
+4. **d)** Cambiar de pestaña no tiene que esperar a que termine un filtrado lento anterior.

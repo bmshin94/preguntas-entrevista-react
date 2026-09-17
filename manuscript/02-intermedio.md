@@ -3853,6 +3853,331 @@ const InputLegacy = forwardRef(function Input(props, ref) {
 
 ---
 
+## ¿Qué es el componente `ViewTransition` en React?
+
+Desde React 19.3, `<ViewTransition>` es una API **estable** que anima un trozo de UI cuando entra, sale, se mueve o cambia de tamaño usando la [View Transition API](https://developer.mozilla.org/en-US/docs/Web/API/View_Transition_API) del navegador.
+
+Envuelves el contenido que quieres animar. React elige la animación según cómo cambió el árbol:
+
+- **enter**: se añade el `<ViewTransition>`.
+- **exit**: se elimina el `<ViewTransition>`.
+- **update**: cambian el estilo o el contenido de sus hijos.
+- **share**: un `<ViewTransition>` con `name` se desmonta en un sitio y se monta en otro.
+
+```javascript
+import { ViewTransition, useState, startTransition } from 'react'
+
+function Panel() {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <button
+        onClick={() => {
+          startTransition(() => setOpen(prev => !prev))
+        }}
+      >
+        {open ? 'Ocultar' : 'Mostrar'}
+      </button>
+      {open && (
+        <ViewTransition>
+          <article>Contenido animado</article>
+        </ViewTransition>
+      )}
+    </>
+  )
+}
+```
+
+Solo se anima si el cambio va **marcado como Transition**: `startTransition`, un reveal de `<Suspense>` o una actualización de `useDeferredValue`. Un `setState` urgente no dispara la animación, porque React lo considera inmediato.
+
+Por defecto hace un *cross-fade*. Puedes personalizar cada tipo con una [clase de View Transition](https://react.dev/reference/react/ViewTransition#view-transition-class) en CSS, o con las props de evento `onEnter`, `onExit`, `onShare` y `onUpdate`.
+
+También se integra con `Suspense`. Si envuelves el boundary, React anima el paso del fallback al contenido final. Para que la UI no se sienta lenta cuando ya está en caché, conviene animar solo el *update*:
+
+```javascript
+<ViewTransition update='auto' default='none'>
+  <Suspense fallback={<Skeleton />}>
+    <Profile />
+  </Suspense>
+</ViewTransition>
+```
+
+Así el fallback aparece al instante, el contenido cacheado no se anima y solo se anima el cambio fallback → resultado. Hoy `<ViewTransition>` funciona en el DOM; el soporte para React Native está en camino.
+
+Enlaces de interés:
+
+- [React 19.3: View Transitions](https://react.dev/blog/2026/09/09/react-19-3)
+- [Documentación de `ViewTransition`](https://react.dev/reference/react/ViewTransition)
+
+
+##### Pon a prueba
+
+*Responde sin mirar el solucionario del final del capítulo. Marca una sola opción.*
+
+**1.** ¿Qué anima el componente ViewTransition?
+
+- **a)** Las peticiones fetch del servidor.
+- **b)** Solo transiciones de color en CSS.
+- **c)** Entrada, salida, movimiento o cambio de tamaño usando la View Transition API del navegador.
+- **d)** El ciclo de vida de los class components.
+
+**2.** ¿Cuándo dispara animación un ViewTransition?
+
+- **a)** Solo si usas useEffect.
+- **b)** Solo al montar la aplicación.
+- **c)** Nunca: hay que animar a mano con requestAnimationFrame.
+- **d)** Cuando el cambio va marcado como Transition: startTransition, Suspense o useDeferredValue.
+
+**3.** ¿Qué tipos de animación reconoce ViewTransition?
+
+- **a)** layout y paint.
+- **b)** server y client.
+- **c)** enter, exit, update y share.
+- **d)** mount, update y unmount solamente.
+
+**4.** Al animar Suspense, ¿qué patrón recomienda React para no ralentizar UI cacheada?
+
+- **a)** Quitar el fallback de Suspense.
+- **b)** Envolver cada hook en ViewTransition.
+- **c)** Usar flushSync alrededor del fallback.
+- **d)** Animar solo el update: update='auto' y default='none'.
+
+---
+
+## ¿Para qué sirve `addTransitionType`?
+
+`addTransitionType` añade información sobre la **causa** de una Transition. Sirve cuando el mismo `setState` debe animarse distinto según de dónde venga: por ejemplo, un carrusel que va *hacia delante* o *hacia atrás* aunque ambos dejen `currentSlide` en 3.
+
+Se llama **dentro** de `startTransition`, junto a la actualización de estado:
+
+```javascript
+import { ViewTransition, addTransitionType, startTransition, useState } from 'react'
+
+function Carousel({ slides }) {
+  const [index, setIndex] = useState(0)
+  const slide = slides[index]
+
+  const goNext = () => {
+    startTransition(() => {
+      addTransitionType('next')
+      setIndex(i => (i + 1) % slides.length)
+    })
+  }
+
+  const goPrev = () => {
+    startTransition(() => {
+      addTransitionType('previous')
+      setIndex(i => (i === 0 ? slides.length - 1 : i - 1))
+    })
+  }
+
+  return (
+    <>
+      <button onClick={goPrev}>Anterior</button>
+      <button onClick={goNext}>Siguiente</button>
+      <ViewTransition
+        key={slide.id}
+        enter={{ next: 'from-right', previous: 'from-left' }}
+        exit={{ next: 'to-left', previous: 'to-right' }}
+      >
+        <Slide data={slide} />
+      </ViewTransition>
+    </>
+  )
+}
+```
+
+`<ViewTransition>` mapea cada tipo a una clase CSS (`from-right`, `to-left`…). React también registra esos tipos como [view transition types](https://www.w3.org/TR/css-view-transitions-2/#active-view-transition-pseudo-examples) del navegador, así que puedes acotar animaciones con `:active-view-transition-type(...)`.
+
+
+##### Pon a prueba
+
+*Responde sin mirar el solucionario del final del capítulo. Marca una sola opción.*
+
+**1.** ¿Qué problema resuelve addTransitionType?
+
+- **a)** Animar de forma distinta el mismo setState según la causa (por ejemplo, adelante o atrás).
+- **b)** Cancelar todas las animaciones CSS.
+- **c)** Sustituir a useTransition.
+- **d)** Crear un nuevo tipo de hook.
+
+**2.** ¿Dónde se debe llamar addTransitionType?
+
+- **a)** Dentro de startTransition, junto a la actualización de estado.
+- **b)** En el cuerpo del render, en cada pintado.
+- **c)** Solo dentro de useEffect.
+- **d)** En el constructor de un class component.
+
+**3.** ¿Cómo consume ViewTransition esos tipos?
+
+- **a)** Los convierte en keys de lista.
+- **b)** Los ignora: solo sirve para analytics.
+- **c)** Sustituyen a la prop key.
+- **d)** Mapeando enter/exit a clases CSS por tipo, p. ej. enter={{ next: 'from-right' }}.
+
+**4.** Además del mapeo en JSX, ¿qué otra integración tienen los tipos?
+
+- **a)** Activan el React Compiler.
+- **b)** Reemplazan a las media queries.
+- **c)** Se registran como view transition types del navegador y se pueden usar con :active-view-transition-type(...).
+- **d)** Se guardan en localStorage automáticamente.
+
+---
+
+## ¿Qué son las Fragment Refs y qué problemas resuelven?
+
+Desde React 19.3 puedes pasar una `ref` a un `<Fragment>`. Esa ref apunta a un `FragmentInstance`: un objeto que trata los nodos DOM **hijos como grupo**, sin envolverlos en un `<div>` extra.
+
+Resuelven dos casos incómodos:
+
+- Un componente que renderiza **hermanos** sin un padre DOM común.
+- Un componente de librería que **no reenvía** la prop `ref`.
+
+```javascript
+import { Fragment, useRef, useLayoutEffect } from 'react'
+
+function InView({ onChange, children }) {
+  const fragmentRef = useRef(null)
+
+  useLayoutEffect(() => {
+    const visible = new Set()
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) visible.add(entry.target)
+        else visible.delete(entry.target)
+      }
+      onChange(visible.size > 0)
+    })
+
+    const instance = fragmentRef.current
+    instance.observeUsing(observer)
+    return () => instance.unobserveUsing(observer)
+  }, [onChange])
+
+  return <Fragment ref={fragmentRef}>{children}</Fragment>
+}
+```
+
+El `FragmentInstance` no cambia la estructura del DOM. Expone un subconjunto de APIs útiles:
+
+- `addEventListener`, `removeEventListener` y `dispatchEvent` sobre los hijos de primer nivel.
+- `focus`, `focusLast` y `blur` recorren los hijos anidados en profundidad.
+- `observeUsing` / `unobserveUsing` conectan un `IntersectionObserver` o un `ResizeObserver`.
+- `getClientRects`, `getRootNode`, `compareDocumentPosition` y `scrollIntoView` para medir y desplazar.
+
+Así puedes añadir comportamiento (visibilidad, foco, listeners) a otros componentes **sin modificar su interior** y **sin romper el layout** con un wrapper.
+
+
+##### Pon a prueba
+
+*Responde sin mirar el solucionario del final del capítulo. Marca una sola opción.*
+
+**1.** ¿Qué obtienes al pasar una ref a un Fragment en React 19.3?
+
+- **a)** Un FragmentInstance que trata los nodos DOM hijos como grupo.
+- **b)** Un portal al document.body.
+- **c)** Un div wrapper creado por React.
+- **d)** Un error: Fragment no acepta ref.
+
+**2.** ¿Qué problemas evitan las Fragment Refs?
+
+- **a)** El XSS por innerHTML.
+- **b)** Tener que envolver hermanos en un div o modificar un componente que no reenvía ref.
+- **c)** Las reglas de los hooks.
+- **d)** Los re-renders por Context.
+
+**3.** ¿Qué método del FragmentInstance conecta un IntersectionObserver?
+
+- **a)** subscribe.
+- **b)** observeUsing / unobserveUsing.
+- **c)** attachObserver.
+- **d)** useInView.
+
+**4.** ¿Las Fragment Refs cambian la estructura del DOM?
+
+- **a)** Sí: React inserta un span invisible.
+- **b)** No: operan sobre los hijos sin añadir un nodo padre extra.
+- **c)** Sí, y hay que compensarlo con CSS.
+- **d)** Solo en StrictMode.
+
+---
+
+## ¿Qué hace la API `browser` de React DOM?
+
+`browser()` (desde `react-dom`) es la forma oficial, desde React 19.3, de **sacar un componente del renderizado en el servidor**. Se usa con `use(browser())`.
+
+En el servidor esa llamada **suspende** y se muestra el fallback del `<Suspense>` más cercano. En el cliente, tras hidratar, **no suspende** y el componente se renderiza con normalidad.
+
+```javascript
+import { Suspense, use } from 'react'
+import { browser } from 'react-dom'
+
+function TimeZone() {
+  use(browser())
+  const timeZone = new Intl.DateTimeFormat().resolvedOptions().timeZone
+  return <p>{timeZone}</p>
+}
+
+export function App() {
+  return (
+    <Suspense fallback={<p>Cargando zona horaria…</p>}>
+      <TimeZone />
+    </Suspense>
+  )
+}
+```
+
+Sirve cuando el HTML del servidor no puede coincidir con el primer render del cliente: `localStorage`, zona horaria, APIs solo de navegador, etc. Evita el clásico `useEffect` + `mounted` o el `typeof window !== 'undefined'`.
+
+Como `use` sí admite llamadas condicionales, puedes optar al SSR solo cuando falten datos:
+
+```javascript
+function useBrowserQuery(query, options) {
+  if (options.initialData === undefined) {
+    use(browser())
+  }
+  return useQuery(query, options)
+}
+```
+
+Si el Server Component (o el loader del framework) ya te pasa `initialData`, el HTML incluye el contenido. Si no, espera al navegador.
+
+
+##### Pon a prueba
+
+*Responde sin mirar el solucionario del final del capítulo. Marca una sola opción.*
+
+**1.** ¿Qué hace use(browser()) en el servidor?
+
+- **a)** Ejecuta el componente dos veces, como StrictMode.
+- **b)** Suspende y muestra el fallback del Suspense más cercano.
+- **c)** Renderiza el componente con window mockeado.
+- **d)** Lo convierte en un Server Component.
+
+**2.** ¿Qué ocurre con use(browser()) en el cliente tras hidratar?
+
+- **a)** Activa flushSync.
+- **b)** No suspende: el componente se renderiza con normalidad.
+- **c)** Sigue suspendiendo para siempre.
+- **d)** Desmonta el árbol de React.
+
+**3.** ¿Cuándo conviene usar browser()?
+
+- **a)** Cuando el HTML del servidor no puede coincidir: localStorage, zona horaria, APIs solo de navegador.
+- **b)** Para crear Context.
+- **c)** Únicamente en tests.
+- **d)** Solo para animar listas.
+
+**4.** ¿Se puede llamar use(browser()) de forma condicional?
+
+- **a)** Solo en React Native.
+- **b)** No: hay que usarlo siempre en el top-level.
+- **c)** Sí: use admite llamadas condicionales, por ejemplo si no hay initialData.
+- **d)** No: rompería las reglas de los hooks.
+
+---
+
 
 {pagebreak}
 
@@ -4277,3 +4602,31 @@ const InputLegacy = forwardRef(function Input(props, ref) {
 1. **d)** Puede recibirse como prop normal sin forwardRef en la mayoría de casos.
 2. **b)** Por compatibilidad con código y librerías antiguas.
 3. **c)** useImperativeHandle junto a una ref.
+
+### ¿Qué es el componente `ViewTransition` en React?
+
+1. **c)** Entrada, salida, movimiento o cambio de tamaño usando la View Transition API del navegador.
+2. **d)** Cuando el cambio va marcado como Transition: startTransition, Suspense o useDeferredValue.
+3. **c)** enter, exit, update y share.
+4. **d)** Animar solo el update: update='auto' y default='none'.
+
+### ¿Para qué sirve `addTransitionType`?
+
+1. **a)** Animar de forma distinta el mismo setState según la causa (por ejemplo, adelante o atrás).
+2. **a)** Dentro de startTransition, junto a la actualización de estado.
+3. **d)** Mapeando enter/exit a clases CSS por tipo, p. ej. enter={{ next: 'from-right' }}.
+4. **c)** Se registran como view transition types del navegador y se pueden usar con :active-view-transition-type(...).
+
+### ¿Qué son las Fragment Refs y qué problemas resuelven?
+
+1. **a)** Un FragmentInstance que trata los nodos DOM hijos como grupo.
+2. **b)** Tener que envolver hermanos en un div o modificar un componente que no reenvía ref.
+3. **b)** observeUsing / unobserveUsing.
+4. **b)** No: operan sobre los hijos sin añadir un nodo padre extra.
+
+### ¿Qué hace la API `browser` de React DOM?
+
+1. **b)** Suspende y muestra el fallback del Suspense más cercano.
+2. **b)** No suspende: el componente se renderiza con normalidad.
+3. **a)** Cuando el HTML del servidor no puede coincidir: localStorage, zona horaria, APIs solo de navegador.
+4. **c)** Sí: use admite llamadas condicionales, por ejemplo si no hay initialData.

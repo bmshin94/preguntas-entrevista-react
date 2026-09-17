@@ -137,6 +137,10 @@
     - [¿Qué es `React.lazy` y cómo se combina con `Suspense`?](#qué-es-reactlazy-y-cómo-se-combina-con-suspense)
     - [¿Qué es `startTransition` y en qué se diferencia de actualizar el estado de forma normal?](#qué-es-starttransition-y-en-qué-se-diferencia-de-actualizar-el-estado-de-forma-normal)
     - [¿En React 19 se necesita todavía `forwardRef`?](#en-react-19-se-necesita-todavía-forwardref)
+    - [¿Qué es el componente `ViewTransition` en React?](#qué-es-el-componente-viewtransition-en-react)
+    - [¿Para qué sirve `addTransitionType`?](#para-qué-sirve-addtransitiontype)
+    - [¿Qué son las Fragment Refs y qué problemas resuelven?](#qué-son-las-fragment-refs-y-qué-problemas-resuelven)
+    - [¿Qué hace la API `browser` de React DOM?](#qué-hace-la-api-browser-de-react-dom)
   - [Experto](#experto)
     - [¿Es React una biblioteca o un framework? ¿Por qué?](#es-react-una-biblioteca-o-un-framework-por-qué)
     - [¿Para qué sirve el hook `useImperativeHandle`?](#para-qué-sirve-el-hook-useimperativehandle)
@@ -165,6 +169,9 @@
     - [¿Cómo puedo hacer testing de un componente?](#cómo-puedo-hacer-testing-de-un-componente)
     - [¿Cómo puedo hacer testing de un hook?](#cómo-puedo-hacer-testing-de-un-hook)
     - [¿Qué es Flux?](#qué-es-flux)
+    - [¿Cómo se puede renderizar un Context desde un Server Component?](#cómo-se-puede-renderizar-un-context-desde-un-server-component)
+    - [¿Qué son Trusted Types y cómo los soporta React 19.3?](#qué-son-trusted-types-y-cómo-los-soporta-react-193)
+    - [¿Qué cambia en las Transitions independientes de React 19.3?](#qué-cambia-en-las-transitions-independientes-de-react-193)
   - [Errores Típicos en React](#errores-típicos-en-react)
     - [¿Qué quiere decir: Warning: Each child in a list should have a unique key prop?](#qué-quiere-decir-warning-each-child-in-a-list-should-have-a-unique-key-prop)
     - [React Hook useXXX is called conditionally. React Hooks must be called in the exact same order in every component render](#react-hook-usexxx-is-called-conditionally-react-hooks-must-be-called-in-the-exact-same-order-in-every-component-render)
@@ -3989,6 +3996,207 @@ const InputLegacy = forwardRef(function Input(props, ref) {
 
 ---
 
+#### ¿Qué es el componente `ViewTransition` en React?
+
+Desde React 19.3, `<ViewTransition>` es una API **estable** que anima un trozo de UI cuando entra, sale, se mueve o cambia de tamaño usando la [View Transition API](https://developer.mozilla.org/en-US/docs/Web/API/View_Transition_API) del navegador.
+
+Envuelves el contenido que quieres animar. React elige la animación según cómo cambió el árbol:
+
+- **enter**: se añade el `<ViewTransition>`.
+- **exit**: se elimina el `<ViewTransition>`.
+- **update**: cambian el estilo o el contenido de sus hijos.
+- **share**: un `<ViewTransition>` con `name` se desmonta en un sitio y se monta en otro.
+
+```jsx
+import { ViewTransition, useState, startTransition } from 'react'
+
+function Panel() {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <button
+        onClick={() => {
+          startTransition(() => setOpen(prev => !prev))
+        }}
+      >
+        {open ? 'Ocultar' : 'Mostrar'}
+      </button>
+      {open && (
+        <ViewTransition>
+          <article>Contenido animado</article>
+        </ViewTransition>
+      )}
+    </>
+  )
+}
+```
+
+Solo se anima si el cambio va **marcado como Transition**: `startTransition`, un reveal de `<Suspense>` o una actualización de `useDeferredValue`. Un `setState` urgente no dispara la animación, porque React lo considera inmediato.
+
+Por defecto hace un *cross-fade*. Puedes personalizar cada tipo con una [clase de View Transition](https://react.dev/reference/react/ViewTransition#view-transition-class) en CSS, o con las props de evento `onEnter`, `onExit`, `onShare` y `onUpdate`.
+
+También se integra con `Suspense`. Si envuelves el boundary, React anima el paso del fallback al contenido final. Para que la UI no se sienta lenta cuando ya está en caché, conviene animar solo el *update*:
+
+```jsx
+<ViewTransition update='auto' default='none'>
+  <Suspense fallback={<Skeleton />}>
+    <Profile />
+  </Suspense>
+</ViewTransition>
+```
+
+Así el fallback aparece al instante, el contenido cacheado no se anima y solo se anima el cambio fallback → resultado. Hoy `<ViewTransition>` funciona en el DOM; el soporte para React Native está en camino.
+
+Enlaces de interés:
+
+- [React 19.3: View Transitions](https://react.dev/blog/2026/09/09/react-19-3)
+- [Documentación de `ViewTransition`](https://react.dev/reference/react/ViewTransition)
+
+**[⬆ Volver a índice](#índice)**
+
+---
+
+#### ¿Para qué sirve `addTransitionType`?
+
+`addTransitionType` añade información sobre la **causa** de una Transition. Sirve cuando el mismo `setState` debe animarse distinto según de dónde venga: por ejemplo, un carrusel que va *hacia delante* o *hacia atrás* aunque ambos dejen `currentSlide` en 3.
+
+Se llama **dentro** de `startTransition`, junto a la actualización de estado:
+
+```jsx
+import { ViewTransition, addTransitionType, startTransition, useState } from 'react'
+
+function Carousel({ slides }) {
+  const [index, setIndex] = useState(0)
+  const slide = slides[index]
+
+  const goNext = () => {
+    startTransition(() => {
+      addTransitionType('next')
+      setIndex(i => (i + 1) % slides.length)
+    })
+  }
+
+  const goPrev = () => {
+    startTransition(() => {
+      addTransitionType('previous')
+      setIndex(i => (i === 0 ? slides.length - 1 : i - 1))
+    })
+  }
+
+  return (
+    <>
+      <button onClick={goPrev}>Anterior</button>
+      <button onClick={goNext}>Siguiente</button>
+      <ViewTransition
+        key={slide.id}
+        enter={{ next: 'from-right', previous: 'from-left' }}
+        exit={{ next: 'to-left', previous: 'to-right' }}
+      >
+        <Slide data={slide} />
+      </ViewTransition>
+    </>
+  )
+}
+```
+
+`<ViewTransition>` mapea cada tipo a una clase CSS (`from-right`, `to-left`…). React también registra esos tipos como [view transition types](https://www.w3.org/TR/css-view-transitions-2/#active-view-transition-pseudo-examples) del navegador, así que puedes acotar animaciones con `:active-view-transition-type(...)`.
+
+**[⬆ Volver a índice](#índice)**
+
+---
+
+#### ¿Qué son las Fragment Refs y qué problemas resuelven?
+
+Desde React 19.3 puedes pasar una `ref` a un `<Fragment>`. Esa ref apunta a un `FragmentInstance`: un objeto que trata los nodos DOM **hijos como grupo**, sin envolverlos en un `<div>` extra.
+
+Resuelven dos casos incómodos:
+
+- Un componente que renderiza **hermanos** sin un padre DOM común.
+- Un componente de librería que **no reenvía** la prop `ref`.
+
+```jsx
+import { Fragment, useRef, useLayoutEffect } from 'react'
+
+function InView({ onChange, children }) {
+  const fragmentRef = useRef(null)
+
+  useLayoutEffect(() => {
+    const visible = new Set()
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) visible.add(entry.target)
+        else visible.delete(entry.target)
+      }
+      onChange(visible.size > 0)
+    })
+
+    const instance = fragmentRef.current
+    instance.observeUsing(observer)
+    return () => instance.unobserveUsing(observer)
+  }, [onChange])
+
+  return <Fragment ref={fragmentRef}>{children}</Fragment>
+}
+```
+
+El `FragmentInstance` no cambia la estructura del DOM. Expone un subconjunto de APIs útiles:
+
+- `addEventListener`, `removeEventListener` y `dispatchEvent` sobre los hijos de primer nivel.
+- `focus`, `focusLast` y `blur` recorren los hijos anidados en profundidad.
+- `observeUsing` / `unobserveUsing` conectan un `IntersectionObserver` o un `ResizeObserver`.
+- `getClientRects`, `getRootNode`, `compareDocumentPosition` y `scrollIntoView` para medir y desplazar.
+
+Así puedes añadir comportamiento (visibilidad, foco, listeners) a otros componentes **sin modificar su interior** y **sin romper el layout** con un wrapper.
+
+**[⬆ Volver a índice](#índice)**
+
+---
+
+#### ¿Qué hace la API `browser` de React DOM?
+
+`browser()` (desde `react-dom`) es la forma oficial, desde React 19.3, de **sacar un componente del renderizado en el servidor**. Se usa con `use(browser())`.
+
+En el servidor esa llamada **suspende** y se muestra el fallback del `<Suspense>` más cercano. En el cliente, tras hidratar, **no suspende** y el componente se renderiza con normalidad.
+
+```jsx
+import { Suspense, use } from 'react'
+import { browser } from 'react-dom'
+
+function TimeZone() {
+  use(browser())
+  const timeZone = new Intl.DateTimeFormat().resolvedOptions().timeZone
+  return <p>{timeZone}</p>
+}
+
+export function App() {
+  return (
+    <Suspense fallback={<p>Cargando zona horaria…</p>}>
+      <TimeZone />
+    </Suspense>
+  )
+}
+```
+
+Sirve cuando el HTML del servidor no puede coincidir con el primer render del cliente: `localStorage`, zona horaria, APIs solo de navegador, etc. Evita el clásico `useEffect` + `mounted` o el `typeof window !== 'undefined'`.
+
+Como `use` sí admite llamadas condicionales, puedes optar al SSR solo cuando falten datos:
+
+```jsx
+function useBrowserQuery(query, options) {
+  if (options.initialData === undefined) {
+    use(browser())
+  }
+  return useQuery(query, options)
+}
+```
+
+Si el Server Component (o el loader del framework) ya te pasa `initialData`, el HTML incluye el contenido. Si no, espera al navegador.
+
+**[⬆ Volver a índice](#índice)**
+
+---
+
 ### Experto
 
 #### ¿Es React una biblioteca o un framework? ¿Por qué?
@@ -4680,6 +4888,115 @@ _Flux_ es un patrón de arquitectura de aplicaciones de **flujo de datos unidire
 No es específico de React. Los stores guardan el estado y emiten eventos al cambiar; las vistas se suscriben para actualizarse.
 
 Facebook lo creó para gestionar UIs complejas. **Redux** y otras librerías de estado se inspiraron en este patrón (acción → reducer/store → UI).
+
+**[⬆ Volver a índice](#índice)**
+
+---
+
+#### ¿Cómo se puede renderizar un Context desde un Server Component?
+
+Los Server Components **no pueden crear** un Context (`createContext` es de cliente), pero desde React 19.3 **sí pueden renderizarlo** si lo importan de un módulo `'use client'`.
+
+Antes hacía falta un Provider envoltorio que solo reenviaba la prop:
+
+```jsx
+// user-context.js
+'use client'
+import { createContext } from 'react'
+
+export const UserContext = createContext(null)
+
+export function UserProvider({ currentUser, children }) {
+  return <UserContext value={currentUser}>{children}</UserContext>
+}
+```
+
+```jsx
+// layout.server.js
+import { UserProvider } from './user-context'
+
+export async function Layout({ children }) {
+  const currentUser = await getCurrentUser()
+  return <UserProvider currentUser={currentUser}>{children}</UserProvider>
+}
+```
+
+Ahora el Server Component importa el Context y lo usa directo:
+
+```jsx
+// user-context.js
+'use client'
+import { createContext } from 'react'
+
+export const UserContext = createContext(null)
+```
+
+```jsx
+// layout.server.js
+import { UserContext } from './user-context'
+
+export async function Layout({ children }) {
+  const currentUser = await getCurrentUser()
+
+  return <UserContext value={currentUser}>{children}</UserContext>
+}
+```
+
+Es especialmente útil cuando el Context solo existe para **pasar datos del servidor al árbol de cliente**. La creación sigue siendo del lado cliente; el servidor solo lo *renderiza* con un `value`.
+
+**[⬆ Volver a índice](#índice)**
+
+---
+
+#### ¿Qué son Trusted Types y cómo los soporta React 19.3?
+
+[Trusted Types](https://developer.mozilla.org/en-US/docs/Web/API/Trusted_Types_API) es una API del navegador para reducir XSS basado en DOM. Si la página envía `Content-Security-Policy: require-trusted-types-for 'script'`, el navegador exige que valores peligrosos (`innerHTML`, scripts, URLs de script) sean objetos tipados (`TrustedHTML`, `TrustedScript`, `TrustedScriptURL`) creados por **tus políticas de sanitización**, no strings crudos.
+
+Antes, React convertía siempre el valor a string (`'' + value`) antes de pasarlo al DOM. Eso **rompía** los objetos Trusted Types: el navegador recibía un string y lo rechazaba.
+
+En React 19.3 esos valores **se pasan sin coercionar**. El navegador puede validarlos y tus políticas funcionan como toca.
+
+En la práctica: si sanitizas HTML con una política Trusted Types y lo inyectas (por ejemplo con `dangerouslySetInnerHTML`), React ya no te lo convierte en string a espaldas. Sigue siendo tu responsabilidad sanitizar; React solo deja de destruir el tipo.
+
+**[⬆ Volver a índice](#índice)**
+
+---
+
+#### ¿Qué cambia en las Transitions independientes de React 19.3?
+
+Antes, React **entrelazaba** todas las Transitions en un único render. Si una Transition era lenta (filtrar una lista enorme, revelar un `Suspense` pesado), **retenía** a las demás aunque no tuvieran nada que ver.
+
+Desde React 19.3 cada Transition se renderiza **por su cuenta**. Una Transition lenta ya no bloquea a otra urgente-pero-no-tanto que el usuario acaba de disparar.
+
+```jsx
+function Dashboard() {
+  const [query, setQuery] = useState('')
+  const [tab, setTab] = useState('home')
+  const [isPending, startTransition] = useTransition()
+
+  const onSearch = value => {
+    startTransition(() => setQuery(value))
+  }
+
+  const onTab = next => {
+    startTransition(() => setTab(next))
+  }
+
+  return (
+    <>
+      <input onChange={e => onSearch(e.target.value)} />
+      <nav>
+        <button onClick={() => onTab('home')}>Inicio</button>
+        <button onClick={() => onTab('stats')}>Stats</button>
+      </nav>
+      {isPending && <p>Actualizando…</p>}
+      <Results query={query} tab={tab} />
+    </>
+  )
+}
+```
+
+Cambiar de pestaña no tiene que esperar a que termine el filtrado anterior. El modelo mental no cambia (`startTransition` sigue marcando trabajo no urgente), pero la **planificación** deja de meter todas las Transitions en el mismo saco.
 
 **[⬆ Volver a índice](#índice)**
 

@@ -3518,6 +3518,195 @@ En la mayoría de casos **ya no**. Desde React 19, `ref` es una **prop normal** 
 
 ---
 
+#### ¿Qué es el componente `ViewTransition` en React?
+
+Desde React 19.3, `<ViewTransition>` es una API **estable** que anima un trozo de UI cuando entra, sale, se mueve o cambia de tamaño usando la [View Transition API](https://developer.mozilla.org/en-US/docs/Web/API/View_Transition_API) del navegador.
+
+Envuelves el contenido que quieres animar. React elige la animación según cómo cambió el árbol:
+
+- **enter**: se añade el `<ViewTransition>`.
+- **exit**: se elimina el `<ViewTransition>`.
+- **update**: cambian el estilo o el contenido de sus hijos.
+- **share**: un `<ViewTransition>` con `name` se desmonta en un sitio y se monta en otro.
+
+<pre><code class="language-jsx"><span class="token keyword">import</span> <span class="token punctuation">{</span> ViewTransition<span class="token punctuation">,</span> useState<span class="token punctuation">,</span> startTransition <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'react'</span>
+
+<span class="token keyword">function</span> <span class="token function">Panel</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">const</span> <span class="token punctuation">[</span>open<span class="token punctuation">,</span> setOpen<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useState</span><span class="token punctuation">(</span><span class="token boolean">false</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span></span><span class="token punctuation">></span></span><span class="token plain-text">
+      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span>
+        <span class="token attr-name">onClick</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+          <span class="token function">startTransition</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token function">setOpen</span><span class="token punctuation">(</span><span class="token parameter">prev</span> <span class="token operator">=></span> <span class="token operator">!</span>prev<span class="token punctuation">)</span><span class="token punctuation">)</span>
+        <span class="token punctuation">}</span><span class="token punctuation">}</span></span>
+      <span class="token punctuation">></span></span><span class="token plain-text">
+        </span><span class="token punctuation">{</span>open <span class="token operator">?</span> <span class="token string">'Ocultar'</span> <span class="token operator">:</span> <span class="token string">'Mostrar'</span><span class="token punctuation">}</span><span class="token plain-text">
+      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span><span class="token plain-text">
+      </span><span class="token punctuation">{</span>open <span class="token operator">&amp;&amp;</span> <span class="token punctuation">(</span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">ViewTransition</span></span><span class="token punctuation">></span></span><span class="token plain-text">
+          </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>article</span><span class="token punctuation">></span></span><span class="token plain-text">Contenido animado</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>article</span><span class="token punctuation">></span></span><span class="token plain-text">
+        </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span><span class="token class-name">ViewTransition</span></span><span class="token punctuation">></span></span>
+      <span class="token punctuation">)</span><span class="token punctuation">}</span><span class="token plain-text">
+    </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span></span><span class="token punctuation">></span></span>
+  <span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+
+Solo se anima si el cambio va **marcado como Transition**: `startTransition`, un reveal de `<Suspense>` o una actualización de `useDeferredValue`. Un `setState` urgente no dispara la animación, porque React lo considera inmediato.
+
+Por defecto hace un *cross-fade*. Puedes personalizar cada tipo con una [clase de View Transition](https://react.dev/reference/react/ViewTransition#view-transition-class) en CSS, o con las props de evento `onEnter`, `onExit`, `onShare` y `onUpdate`.
+
+También se integra con `Suspense`. Si envuelves el boundary, React anima el paso del fallback al contenido final. Para que la UI no se sienta lenta cuando ya está en caché, conviene animar solo el *update*:
+
+<pre><code class="language-jsx"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">ViewTransition</span></span> <span class="token attr-name">update</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>auto<span class="token punctuation">'</span></span> <span class="token attr-name">default</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">'</span>none<span class="token punctuation">'</span></span><span class="token punctuation">></span></span><span class="token plain-text">
+  </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Suspense</span></span> <span class="token attr-name">fallback</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Skeleton</span></span> <span class="token punctuation">/></span></span><span class="token punctuation">}</span></span><span class="token punctuation">></span></span><span class="token plain-text">
+    </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Profile</span></span> <span class="token punctuation">/></span></span><span class="token plain-text">
+  </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span><span class="token class-name">Suspense</span></span><span class="token punctuation">></span></span><span class="token plain-text">
+</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span><span class="token class-name">ViewTransition</span></span><span class="token punctuation">></span></span></code></pre>
+
+Así el fallback aparece al instante, el contenido cacheado no se anima y solo se anima el cambio fallback → resultado. Hoy `<ViewTransition>` funciona en el DOM; el soporte para React Native está en camino.
+
+Enlaces de interés:
+
+- [React 19.3: View Transitions](https://react.dev/blog/2026/09/09/react-19-3)
+- [Documentación de `ViewTransition`](https://react.dev/reference/react/ViewTransition)
+
+
+
+---
+
+#### ¿Para qué sirve `addTransitionType`?
+
+`addTransitionType` añade información sobre la **causa** de una Transition. Sirve cuando el mismo `setState` debe animarse distinto según de dónde venga: por ejemplo, un carrusel que va *hacia delante* o *hacia atrás* aunque ambos dejen `currentSlide` en 3.
+
+Se llama **dentro** de `startTransition`, junto a la actualización de estado:
+
+<pre><code class="language-jsx"><span class="token keyword">import</span> <span class="token punctuation">{</span> ViewTransition<span class="token punctuation">,</span> addTransitionType<span class="token punctuation">,</span> startTransition<span class="token punctuation">,</span> useState <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'react'</span>
+
+<span class="token keyword">function</span> <span class="token function">Carousel</span><span class="token punctuation">(</span><span class="token parameter"><span class="token punctuation">{</span> slides <span class="token punctuation">}</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">const</span> <span class="token punctuation">[</span>index<span class="token punctuation">,</span> setIndex<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useState</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+  <span class="token keyword">const</span> slide <span class="token operator">=</span> slides<span class="token punctuation">[</span>index<span class="token punctuation">]</span>
+
+  <span class="token keyword">const</span> <span class="token function-variable function">goNext</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token function">startTransition</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+      <span class="token function">addTransitionType</span><span class="token punctuation">(</span><span class="token string">'next'</span><span class="token punctuation">)</span>
+      <span class="token function">setIndex</span><span class="token punctuation">(</span><span class="token parameter">i</span> <span class="token operator">=></span> <span class="token punctuation">(</span>i <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token operator">%</span> slides<span class="token punctuation">.</span>length<span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+
+  <span class="token keyword">const</span> <span class="token function-variable function">goPrev</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token function">startTransition</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+      <span class="token function">addTransitionType</span><span class="token punctuation">(</span><span class="token string">'previous'</span><span class="token punctuation">)</span>
+      <span class="token function">setIndex</span><span class="token punctuation">(</span><span class="token parameter">i</span> <span class="token operator">=></span> <span class="token punctuation">(</span>i <span class="token operator">===</span> <span class="token number">0</span> <span class="token operator">?</span> slides<span class="token punctuation">.</span>length <span class="token operator">-</span> <span class="token number">1</span> <span class="token operator">:</span> i <span class="token operator">-</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+
+  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span></span><span class="token punctuation">></span></span><span class="token plain-text">
+      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token attr-name">onClick</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>goPrev<span class="token punctuation">}</span></span><span class="token punctuation">></span></span><span class="token plain-text">Anterior</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span><span class="token plain-text">
+      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token attr-name">onClick</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>goNext<span class="token punctuation">}</span></span><span class="token punctuation">></span></span><span class="token plain-text">Siguiente</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span><span class="token plain-text">
+      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">ViewTransition</span></span>
+        <span class="token attr-name">key</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>slide<span class="token punctuation">.</span>id<span class="token punctuation">}</span></span>
+        <span class="token attr-name">enter</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span> <span class="token literal-property property">next</span><span class="token operator">:</span> <span class="token string">'from-right'</span><span class="token punctuation">,</span> <span class="token literal-property property">previous</span><span class="token operator">:</span> <span class="token string">'from-left'</span> <span class="token punctuation">}</span><span class="token punctuation">}</span></span>
+        <span class="token attr-name">exit</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span><span class="token punctuation">{</span> <span class="token literal-property property">next</span><span class="token operator">:</span> <span class="token string">'to-left'</span><span class="token punctuation">,</span> <span class="token literal-property property">previous</span><span class="token operator">:</span> <span class="token string">'to-right'</span> <span class="token punctuation">}</span><span class="token punctuation">}</span></span>
+      <span class="token punctuation">></span></span><span class="token plain-text">
+        </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Slide</span></span> <span class="token attr-name">data</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>slide<span class="token punctuation">}</span></span> <span class="token punctuation">/></span></span><span class="token plain-text">
+      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span><span class="token class-name">ViewTransition</span></span><span class="token punctuation">></span></span><span class="token plain-text">
+    </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span></span><span class="token punctuation">></span></span>
+  <span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+
+`<ViewTransition>` mapea cada tipo a una clase CSS (`from-right`, `to-left`…). React también registra esos tipos como [view transition types](https://www.w3.org/TR/css-view-transitions-2/#active-view-transition-pseudo-examples) del navegador, así que puedes acotar animaciones con `:active-view-transition-type(...)`.
+
+
+
+---
+
+#### ¿Qué son las Fragment Refs y qué problemas resuelven?
+
+Desde React 19.3 puedes pasar una `ref` a un `<Fragment>`. Esa ref apunta a un `FragmentInstance`: un objeto que trata los nodos DOM **hijos como grupo**, sin envolverlos en un `<div>` extra.
+
+Resuelven dos casos incómodos:
+
+- Un componente que renderiza **hermanos** sin un padre DOM común.
+- Un componente de librería que **no reenvía** la prop `ref`.
+
+<pre><code class="language-jsx"><span class="token keyword">import</span> <span class="token punctuation">{</span> Fragment<span class="token punctuation">,</span> useRef<span class="token punctuation">,</span> useLayoutEffect <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'react'</span>
+
+<span class="token keyword">function</span> <span class="token function">InView</span><span class="token punctuation">(</span><span class="token parameter"><span class="token punctuation">{</span> onChange<span class="token punctuation">,</span> children <span class="token punctuation">}</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">const</span> fragmentRef <span class="token operator">=</span> <span class="token function">useRef</span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">)</span>
+
+  <span class="token function">useLayoutEffect</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> visible <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Set</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">const</span> observer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">IntersectionObserver</span><span class="token punctuation">(</span><span class="token parameter">entries</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+      <span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> entry <span class="token keyword">of</span> entries<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>entry<span class="token punctuation">.</span>isIntersecting<span class="token punctuation">)</span> visible<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>entry<span class="token punctuation">.</span>target<span class="token punctuation">)</span>
+        <span class="token keyword">else</span> visible<span class="token punctuation">.</span><span class="token function">delete</span><span class="token punctuation">(</span>entry<span class="token punctuation">.</span>target<span class="token punctuation">)</span>
+      <span class="token punctuation">}</span>
+      <span class="token function">onChange</span><span class="token punctuation">(</span>visible<span class="token punctuation">.</span>size <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">)</span>
+    <span class="token punctuation">}</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">const</span> instance <span class="token operator">=</span> fragmentRef<span class="token punctuation">.</span>current
+    instance<span class="token punctuation">.</span><span class="token function">observeUsing</span><span class="token punctuation">(</span>observer<span class="token punctuation">)</span>
+    <span class="token keyword">return</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> instance<span class="token punctuation">.</span><span class="token function">unobserveUsing</span><span class="token punctuation">(</span>observer<span class="token punctuation">)</span>
+  <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token punctuation">[</span>onChange<span class="token punctuation">]</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">return</span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Fragment</span></span> <span class="token attr-name">ref</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>fragmentRef<span class="token punctuation">}</span></span><span class="token punctuation">></span></span><span class="token punctuation">{</span>children<span class="token punctuation">}</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span><span class="token class-name">Fragment</span></span><span class="token punctuation">></span></span>
+<span class="token punctuation">}</span></code></pre>
+
+El `FragmentInstance` no cambia la estructura del DOM. Expone un subconjunto de APIs útiles:
+
+- `addEventListener`, `removeEventListener` y `dispatchEvent` sobre los hijos de primer nivel.
+- `focus`, `focusLast` y `blur` recorren los hijos anidados en profundidad.
+- `observeUsing` / `unobserveUsing` conectan un `IntersectionObserver` o un `ResizeObserver`.
+- `getClientRects`, `getRootNode`, `compareDocumentPosition` y `scrollIntoView` para medir y desplazar.
+
+Así puedes añadir comportamiento (visibilidad, foco, listeners) a otros componentes **sin modificar su interior** y **sin romper el layout** con un wrapper.
+
+
+
+---
+
+#### ¿Qué hace la API `browser` de React DOM?
+
+`browser()` (desde `react-dom`) es la forma oficial, desde React 19.3, de **sacar un componente del renderizado en el servidor**. Se usa con `use(browser())`.
+
+En el servidor esa llamada **suspende** y se muestra el fallback del `<Suspense>` más cercano. En el cliente, tras hidratar, **no suspende** y el componente se renderiza con normalidad.
+
+<pre><code class="language-jsx"><span class="token keyword">import</span> <span class="token punctuation">{</span> Suspense<span class="token punctuation">,</span> use <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'react'</span>
+<span class="token keyword">import</span> <span class="token punctuation">{</span> browser <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'react-dom'</span>
+
+<span class="token keyword">function</span> <span class="token function">TimeZone</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token function">use</span><span class="token punctuation">(</span><span class="token function">browser</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token keyword">const</span> timeZone <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Intl<span class="token punctuation">.</span>DateTimeFormat</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">resolvedOptions</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>timeZone
+  <span class="token keyword">return</span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>p</span><span class="token punctuation">></span></span><span class="token punctuation">{</span>timeZone<span class="token punctuation">}</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>p</span><span class="token punctuation">></span></span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">export</span> <span class="token keyword">function</span> <span class="token function">App</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Suspense</span></span> <span class="token attr-name">fallback</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>p</span><span class="token punctuation">></span></span><span class="token plain-text">Cargando zona horaria…</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>p</span><span class="token punctuation">></span></span><span class="token punctuation">}</span></span><span class="token punctuation">></span></span><span class="token plain-text">
+      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">TimeZone</span></span> <span class="token punctuation">/></span></span><span class="token plain-text">
+    </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span><span class="token class-name">Suspense</span></span><span class="token punctuation">></span></span>
+  <span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+
+Sirve cuando el HTML del servidor no puede coincidir con el primer render del cliente: `localStorage`, zona horaria, APIs solo de navegador, etc. Evita el clásico `useEffect` + `mounted` o el `typeof window !== 'undefined'`.
+
+Como `use` sí admite llamadas condicionales, puedes optar al SSR solo cuando falten datos:
+
+<pre><code class="language-jsx"><span class="token keyword">function</span> <span class="token function">useBrowserQuery</span><span class="token punctuation">(</span><span class="token parameter">query<span class="token punctuation">,</span> options</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>options<span class="token punctuation">.</span>initialData <span class="token operator">===</span> <span class="token keyword">undefined</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token function">use</span><span class="token punctuation">(</span><span class="token function">browser</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+  <span class="token keyword">return</span> <span class="token function">useQuery</span><span class="token punctuation">(</span>query<span class="token punctuation">,</span> options<span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+
+Si el Server Component (o el loader del framework) ya te pasa `initialData`, el HTML incluye el contenido. Si no, espera al navegador.
+
+
+
+---
+
 ### Experto
 
 #### ¿Es React una biblioteca o un framework? ¿Por qué?
@@ -4175,6 +4364,105 @@ _Flux_ es un patrón de arquitectura de aplicaciones de **flujo de datos unidire
 No es específico de React. Los stores guardan el estado y emiten eventos al cambiar; las vistas se suscriben para actualizarse.
 
 Facebook lo creó para gestionar UIs complejas. **Redux** y otras librerías de estado se inspiraron en este patrón (acción → reducer/store → UI).
+
+
+
+---
+
+#### ¿Cómo se puede renderizar un Context desde un Server Component?
+
+Los Server Components **no pueden crear** un Context (`createContext` es de cliente), pero desde React 19.3 **sí pueden renderizarlo** si lo importan de un módulo `'use client'`.
+
+Antes hacía falta un Provider envoltorio que solo reenviaba la prop:
+
+<pre><code class="language-jsx"><span class="token comment">// user-context.js</span>
+<span class="token string">'use client'</span>
+<span class="token keyword">import</span> <span class="token punctuation">{</span> createContext <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'react'</span>
+
+<span class="token keyword">export</span> <span class="token keyword">const</span> UserContext <span class="token operator">=</span> <span class="token function">createContext</span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">)</span>
+
+<span class="token keyword">export</span> <span class="token keyword">function</span> <span class="token function">UserProvider</span><span class="token punctuation">(</span><span class="token parameter"><span class="token punctuation">{</span> currentUser<span class="token punctuation">,</span> children <span class="token punctuation">}</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">return</span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">UserContext</span></span> <span class="token attr-name">value</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>currentUser<span class="token punctuation">}</span></span><span class="token punctuation">></span></span><span class="token punctuation">{</span>children<span class="token punctuation">}</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span><span class="token class-name">UserContext</span></span><span class="token punctuation">></span></span>
+<span class="token punctuation">}</span></code></pre>
+
+<pre><code class="language-jsx"><span class="token comment">// layout.server.js</span>
+<span class="token keyword">import</span> <span class="token punctuation">{</span> UserProvider <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'./user-context'</span>
+
+<span class="token keyword">export</span> <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">Layout</span><span class="token punctuation">(</span><span class="token parameter"><span class="token punctuation">{</span> children <span class="token punctuation">}</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">const</span> currentUser <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">getCurrentUser</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+  <span class="token keyword">return</span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">UserProvider</span></span> <span class="token attr-name">currentUser</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>currentUser<span class="token punctuation">}</span></span><span class="token punctuation">></span></span><span class="token punctuation">{</span>children<span class="token punctuation">}</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span><span class="token class-name">UserProvider</span></span><span class="token punctuation">></span></span>
+<span class="token punctuation">}</span></code></pre>
+
+Ahora el Server Component importa el Context y lo usa directo:
+
+<pre><code class="language-jsx"><span class="token comment">// user-context.js</span>
+<span class="token string">'use client'</span>
+<span class="token keyword">import</span> <span class="token punctuation">{</span> createContext <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'react'</span>
+
+<span class="token keyword">export</span> <span class="token keyword">const</span> UserContext <span class="token operator">=</span> <span class="token function">createContext</span><span class="token punctuation">(</span><span class="token keyword">null</span><span class="token punctuation">)</span></code></pre>
+
+<pre><code class="language-jsx"><span class="token comment">// layout.server.js</span>
+<span class="token keyword">import</span> <span class="token punctuation">{</span> UserContext <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'./user-context'</span>
+
+<span class="token keyword">export</span> <span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">Layout</span><span class="token punctuation">(</span><span class="token parameter"><span class="token punctuation">{</span> children <span class="token punctuation">}</span></span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">const</span> currentUser <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">getCurrentUser</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">return</span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">UserContext</span></span> <span class="token attr-name">value</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>currentUser<span class="token punctuation">}</span></span><span class="token punctuation">></span></span><span class="token punctuation">{</span>children<span class="token punctuation">}</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span><span class="token class-name">UserContext</span></span><span class="token punctuation">></span></span>
+<span class="token punctuation">}</span></code></pre>
+
+Es especialmente útil cuando el Context solo existe para **pasar datos del servidor al árbol de cliente**. La creación sigue siendo del lado cliente; el servidor solo lo *renderiza* con un `value`.
+
+
+
+---
+
+#### ¿Qué son Trusted Types y cómo los soporta React 19.3?
+
+[Trusted Types](https://developer.mozilla.org/en-US/docs/Web/API/Trusted_Types_API) es una API del navegador para reducir XSS basado en DOM. Si la página envía `Content-Security-Policy: require-trusted-types-for 'script'`, el navegador exige que valores peligrosos (`innerHTML`, scripts, URLs de script) sean objetos tipados (`TrustedHTML`, `TrustedScript`, `TrustedScriptURL`) creados por **tus políticas de sanitización**, no strings crudos.
+
+Antes, React convertía siempre el valor a string (`'' + value`) antes de pasarlo al DOM. Eso **rompía** los objetos Trusted Types: el navegador recibía un string y lo rechazaba.
+
+En React 19.3 esos valores **se pasan sin coercionar**. El navegador puede validarlos y tus políticas funcionan como toca.
+
+En la práctica: si sanitizas HTML con una política Trusted Types y lo inyectas (por ejemplo con `dangerouslySetInnerHTML`), React ya no te lo convierte en string a espaldas. Sigue siendo tu responsabilidad sanitizar; React solo deja de destruir el tipo.
+
+
+
+---
+
+#### ¿Qué cambia en las Transitions independientes de React 19.3?
+
+Antes, React **entrelazaba** todas las Transitions en un único render. Si una Transition era lenta (filtrar una lista enorme, revelar un `Suspense` pesado), **retenía** a las demás aunque no tuvieran nada que ver.
+
+Desde React 19.3 cada Transition se renderiza **por su cuenta**. Una Transition lenta ya no bloquea a otra urgente-pero-no-tanto que el usuario acaba de disparar.
+
+<pre><code class="language-jsx"><span class="token keyword">function</span> <span class="token function">Dashboard</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">const</span> <span class="token punctuation">[</span>query<span class="token punctuation">,</span> setQuery<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useState</span><span class="token punctuation">(</span><span class="token string">''</span><span class="token punctuation">)</span>
+  <span class="token keyword">const</span> <span class="token punctuation">[</span>tab<span class="token punctuation">,</span> setTab<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useState</span><span class="token punctuation">(</span><span class="token string">'home'</span><span class="token punctuation">)</span>
+  <span class="token keyword">const</span> <span class="token punctuation">[</span>isPending<span class="token punctuation">,</span> startTransition<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">useTransition</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+  <span class="token keyword">const</span> <span class="token function-variable function">onSearch</span> <span class="token operator">=</span> <span class="token parameter">value</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token function">startTransition</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token function">setQuery</span><span class="token punctuation">(</span>value<span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+
+  <span class="token keyword">const</span> <span class="token function-variable function">onTab</span> <span class="token operator">=</span> <span class="token parameter">next</span> <span class="token operator">=></span> <span class="token punctuation">{</span>
+    <span class="token function">startTransition</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token function">setTab</span><span class="token punctuation">(</span>next<span class="token punctuation">)</span><span class="token punctuation">)</span>
+  <span class="token punctuation">}</span>
+
+  <span class="token keyword">return</span> <span class="token punctuation">(</span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span></span><span class="token punctuation">></span></span><span class="token plain-text">
+      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">onChange</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span><span class="token parameter">e</span> <span class="token operator">=></span> <span class="token function">onSearch</span><span class="token punctuation">(</span>e<span class="token punctuation">.</span>target<span class="token punctuation">.</span>value<span class="token punctuation">)</span><span class="token punctuation">}</span></span> <span class="token punctuation">/></span></span><span class="token plain-text">
+      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>nav</span><span class="token punctuation">></span></span><span class="token plain-text">
+        </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token attr-name">onClick</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token function">onTab</span><span class="token punctuation">(</span><span class="token string">'home'</span><span class="token punctuation">)</span><span class="token punctuation">}</span></span><span class="token punctuation">></span></span><span class="token plain-text">Inicio</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span><span class="token plain-text">
+        </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token attr-name">onClick</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token function">onTab</span><span class="token punctuation">(</span><span class="token string">'stats'</span><span class="token punctuation">)</span><span class="token punctuation">}</span></span><span class="token punctuation">></span></span><span class="token plain-text">Stats</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">></span></span><span class="token plain-text">
+      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>nav</span><span class="token punctuation">></span></span><span class="token plain-text">
+      </span><span class="token punctuation">{</span>isPending <span class="token operator">&amp;&amp;</span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>p</span><span class="token punctuation">></span></span><span class="token plain-text">Actualizando…</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>p</span><span class="token punctuation">></span></span><span class="token punctuation">}</span><span class="token plain-text">
+      </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token class-name">Results</span></span> <span class="token attr-name">query</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>query<span class="token punctuation">}</span></span> <span class="token attr-name">tab</span><span class="token script language-javascript"><span class="token script-punctuation punctuation">=</span><span class="token punctuation">{</span>tab<span class="token punctuation">}</span></span> <span class="token punctuation">/></span></span><span class="token plain-text">
+    </span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span></span><span class="token punctuation">></span></span>
+  <span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+
+Cambiar de pestaña no tiene que esperar a que termine el filtrado anterior. El modelo mental no cambia (`startTransition` sigue marcando trabajo no urgente), pero la **planificación** deja de meter todas las Transitions en el mismo saco.
 
 
 
